@@ -99,6 +99,8 @@ database
 
 ## Демонстрация
 
+[![Установка и управление таблицами](https://asciinema.org/a/8SslbIRRmHzrJXy6.svg)](https://asciinema.org/a/8SslbIRRmHzrJXy6)
+
 [Запись установки и работы БД в формате asciicast](docs/database.cast).
 Запись содержит реальный вывод установки wheel в отдельное окружение,
 запуска `database`, создания, просмотра списка и удаления таблицы,
@@ -111,5 +113,4 @@ asciinema play docs/database.cast
 asciinema upload docs/database.cast
 ```
 
-Публикация на asciinema.org пока не завершена из-за ошибки TLS-соединения.
-После загрузки ссылку на запись можно встроить в README через превью сервиса.
+Копия записи в репозитории остаётся доступной независимо от внешнего сервиса.

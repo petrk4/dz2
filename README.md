@@ -2,7 +2,7 @@
 
 Автор: Petr Kritsyn, группа M26-555.
 
-Учебная база данных: создание, просмотр списка и удаление схем таблиц.
+Учебная база данных: управление таблицами и CRUD-операции с записями.
 Требования: Python 3.12+ и uv 0.5+.
 
 ## Установка и запуск
@@ -30,7 +30,7 @@ uv run database
 Столбцы не должны повторяться. `ID:int` автоматически добавляется первым;
 явно указанный `ID:int` не дублируется. Другой тип для `ID` запрещён.
 Можно создать таблицу только с автоматически добавленным ID.
-На этом этапе хранятся схемы таблиц, операции со строками данных ещё не реализованы.
+Данные таблиц сохраняются в отдельных JSON-файлах в папке `data/`.
 
 ```text
 >>>Введите команду: create_table users name:str age:int is_active:bool
@@ -77,7 +77,7 @@ uvx twine check dist/*
 ## Установка собранного пакета
 
 ```powershell
-uv tool install .\dist\primitive_db-0.2.0-py3-none-any.whl
+uv tool install .\dist\primitive_db-0.3.0-py3-none-any.whl
 database
 ```
 
@@ -89,7 +89,7 @@ database
 
 ```powershell
 uv venv build/demo-env
-uv pip install --python build/demo-env/Scripts/python.exe .\dist\primitive_db-0.2.0-py3-none-any.whl
+uv pip install --python build/demo-env/Scripts/python.exe .\dist\primitive_db-0.3.0-py3-none-any.whl
 .\build\demo-env\Scripts\Activate.ps1
 database
 ```
@@ -114,3 +114,62 @@ asciinema upload docs/database.cast
 ```
 
 Копия записи в репозитории остаётся доступной независимо от внешнего сервиса.
+
+
+## CRUD-операции
+
+[![Демонстрация CRUD](https://asciinema.org/a/mFdzN1XDWgRgKcF1.svg)](https://asciinema.org/a/mFdzN1XDWgRgKcF1)
+
+[Локальная копия записи](docs/crud.cast). Записана установка wheel и выполнение
+всех CRUD-команд; личные локальные пути в выводе установки скрыты.
+
+Все значения при вставке обязательны, передаются в порядке столбцов схемы
+**без ID**. `ID` вычисляется как `max(существующие ID) + 1`, для пустой таблицы — 1.
+Удаление максимального ID допускает его повторное использование при следующей
+вставке. Изменять ID командой `update` нельзя.
+
+- `str` — текст в одинарных или двойных кавычках, включая пустую строку;
+- `int` — целое число без кавычек;
+- `bool` — `true` или `false` без кавычек.
+
+`null` и пропущенные поля не поддерживаются. Например, `"28"` — строка,
+поэтому её нельзя записать в столбец `int`. Логическое `true` не равно числу `1`.
+Запятые, пробелы и слова `where`/`set` внутри строк не мешают разбору.
+
+| Команда | Действие |
+| --- | --- |
+| `insert into users values ("Sergei", 28, true)` | Добавить запись |
+| `select from users` | Показать все записи через PrettyTable |
+| `select from users where age = 28` | Показать совпадения |
+| `update users set age = 29 where name = "Sergei"` | Обновить все совпадения |
+| `delete from users where ID = 1` | Удалить все совпадения |
+| `info users` | Показать имя, столбцы и количество записей |
+
+В `where` поддерживается одно условие равенства. Для `update` можно задать
+несколько присваиваний через запятую: `set age=29, is_active=false`.
+Для `update` и `delete` условие `where` обязательно. Неизвестные столбцы,
+неверные типы и неправильное число значений отклоняются без изменения данных.
+Команды вводятся строчными буквами, без завершающей точки с запятой.
+
+```text
+create_table users name:str age:int is_active:bool
+insert into users values ("Sergei", 28, true)
+select from users where age = 28
+update users set age = 29 where name = "Sergei"
+select from users
+info users
+delete from users where ID = 1
+info users
+exit
+```
+
+Записи хранятся в `data/users.json` относительно текущей рабочей папки.
+Отсутствующий файл означает пустую таблицу. Повреждённые данные не перезаписываются.
+Запись JSON выполняется через временный файл с последующей заменой.
+Удаление таблицы удаляет и её файл данных; повторное создание начинает пустую таблицу.
+Папка `data/` исключена из Git. Одновременная запись из нескольких процессов
+не поддерживается.
+
+`parser.py` разбирает CRUD-команды и типизированные значения; `core.py`
+выполняет операции с записями; `utils.py` загружает и сохраняет JSON;
+`engine.py` связывает команды, хранение и PrettyTable.

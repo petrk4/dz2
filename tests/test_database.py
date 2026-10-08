@@ -17,6 +17,9 @@ class DatabaseTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "db_meta.json"
+        data_dir = patch("primitive_db.utils.DATA_DIR", Path(self.temp.name) / "data")
+        data_dir.start()
+        self.addCleanup(data_dir.stop)
         self.output = io.StringIO()
         self.capture = redirect_stdout(self.output)
         self.capture.__enter__()

@@ -1,17 +1,33 @@
 [project]
 name = "primitive-db"
 version = "0.1.0"
-description = "Add your description here"
+description = "Учебный проект примитивной базы данных с интерфейсом командной строки"
 readme = "README.md"
 authors = [
-    { name = "Petr", email = "you@example.com" }
+    { name = "Petr Kritsyn" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "prompt>=0.4.1",
+]
 
 [project.scripts]
-primitive-db = "primitive_db:main"
+project = "primitive_db.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.16,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = ["venv", ".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.10",
+]

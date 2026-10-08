@@ -6,9 +6,16 @@ ENCODING = "utf-8"
 JSON_INDENT = 2
 TEMP_TOKEN_BYTES = 16
 ID_COLUMN = "ID"
-ID_SCHEMA = "ID:int"
+ID_TYPE = "int"
+ID_SCHEMA = f"{ID_COLUMN}:{ID_TYPE}"
 VALID_TYPES = {"int", "str", "bool"}
 TYPE_MAP = {"int": int, "str": str, "bool": bool}
+BOOL_LITERALS = {"true": True, "false": False}
+CONFIRM_RESPONSE = "y"
+INPUT_PROMPT = ">>>Введите команду: "
+DATA_COMMANDS = {"insert", "select", "update", "delete", "info"}
+TABLE_COMMANDS = {"create_table", "drop_table"}
+NO_ARGUMENT_COMMANDS = {"list_tables", "help", "exit"}
 
 HELP = """\n***Процесс работы с таблицей***
 Функции:

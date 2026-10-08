@@ -2,7 +2,7 @@
 
 import json
 
-from primitive_db.constants import ID_COLUMN, ID_SCHEMA, VALID_TYPES
+from primitive_db.constants import ID_COLUMN, ID_SCHEMA, ID_TYPE, VALID_TYPES
 from primitive_db.decorators import (
     confirm_action,
     create_cacher,
@@ -38,7 +38,7 @@ def create_table(metadata, table_name, columns):
             not name.isidentifier()
             or name in names
             or data_type not in VALID_TYPES
-            or (name == ID_COLUMN and data_type != "int")
+            or (name == ID_COLUMN and data_type != ID_TYPE)
         ):
             raise ValueError(f"Некорректное значение: {column}. Попробуйте снова.")
         names.add(name)
@@ -47,7 +47,6 @@ def create_table(metadata, table_name, columns):
 
     metadata[table_name] = schema
     _select_cache.clear()
-    print(f'Таблица "{table_name}" успешно создана со столбцами: ' + ", ".join(schema))
     return metadata
 
 
@@ -59,7 +58,6 @@ def drop_table(metadata, table_name):
         raise KeyError(table_name)
     del metadata[table_name]
     _select_cache.clear()
-    print(f'Таблица "{table_name}" успешно удалена.')
     return metadata
 
 
@@ -77,7 +75,7 @@ def list_tables(metadata):
 def insert(metadata, table_name, values, table_data=None):
     """Добавить запись с ID=max(IDs)+1, не меняя исходный список."""
     schema = get_schema(metadata, table_name)
-    columns = [name for name in schema if name != "ID"]
+    columns = [name for name in schema if name != ID_COLUMN]
     if len(values) != len(columns):
         raise ValueError(f"Ожидается значений: {len(columns)}, получено: {len(values)}")
     record = dict(zip(columns, values, strict=True))
@@ -85,9 +83,9 @@ def insert(metadata, table_name, values, table_data=None):
     if table_data is None:
         table_data = load_table_data(table_name)
     validate_table_data(schema, table_data)
-    new_id = max((row["ID"] for row in table_data), default=0) + 1
+    new_id = max((row[ID_COLUMN] for row in table_data), default=0) + 1
     _select_cache.clear()
-    return [*table_data, {"ID": new_id, **record}]
+    return [*table_data, {ID_COLUMN: new_id, **record}]
 
 
 def _matches(row, clause):
@@ -116,7 +114,7 @@ def update(table_data, set_clause, where_clause):
     """Обновить все совпадения, сохранив исходные записи при ошибке."""
     if not set_clause or not where_clause:
         raise ValueError("Для update нужны set и where")
-    if "ID" in set_clause:
+    if ID_COLUMN in set_clause:
         raise ValueError("ID генерируется автоматически и не изменяется")
     for row in table_data:
         for name, value in set_clause.items():

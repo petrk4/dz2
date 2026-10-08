@@ -5,7 +5,15 @@ import shlex
 import prompt
 from prettytable import PrettyTable
 
-from primitive_db.constants import HELP, META_FILE
+from primitive_db.constants import (
+    DATA_COMMANDS,
+    HELP,
+    ID_COLUMN,
+    INPUT_PROMPT,
+    META_FILE,
+    NO_ARGUMENT_COMMANDS,
+    TABLE_COMMANDS,
+)
 from primitive_db.core import (
     create_table,
     delete,
@@ -60,7 +68,8 @@ def execute_data_command(metadata, text):
             return
         save_table_data(table_name, data)
         print(
-            f'Запись с ID={data[-1]["ID"]} успешно добавлена в таблицу "{table_name}".'
+            f"Запись с ID={data[-1][ID_COLUMN]} успешно добавлена "
+            f'в таблицу "{table_name}".'
         )
     else:
         if command == "update":
@@ -81,14 +90,37 @@ def execute_data_command(metadata, text):
         for row in matches:
             if command == "update":
                 print(
-                    f'Запись с ID={row["ID"]} в таблице "{table_name}" '
+                    f'Запись с ID={row[ID_COLUMN]} в таблице "{table_name}" '
                     "успешно обновлена."
                 )
             else:
                 print(
-                    f"Запись с ID={row['ID']} успешно удалена "
+                    f"Запись с ID={row[ID_COLUMN]} успешно удалена "
                     f'из таблицы "{table_name}".'
                 )
+
+
+@handle_db_errors
+def execute_table_command(metadata, command, arguments, filepath):
+    """Сообщить об успехе изменения таблицы только после сохранения файлов."""
+    table_name = arguments[0]
+    if command == "create_table":
+        result = create_table(metadata, table_name, arguments[1:])
+    else:
+        result = drop_table(metadata, table_name)
+    if result is None:
+        return
+    if command == "create_table":
+        save_table_data(table_name, [])
+    save_metadata(filepath, result)
+    if command == "drop_table":
+        remove_table_data(table_name)
+        print(f'Таблица "{table_name}" успешно удалена.')
+    else:
+        print(
+            f'Таблица "{table_name}" успешно создана со столбцами: '
+            + ", ".join(result[table_name])
+        )
 
 
 def run(filepath=META_FILE):
@@ -103,18 +135,12 @@ def run(filepath=META_FILE):
             return
 
         try:
-            user_input = prompt.string(">>>Введите команду: ")
+            user_input = prompt.string(INPUT_PROMPT)
         except (EOFError, KeyboardInterrupt):
             print()
             return
         first_word = user_input.split(maxsplit=1)
-        if first_word and first_word[0] in {
-            "insert",
-            "select",
-            "update",
-            "delete",
-            "info",
-        }:
+        if first_word and first_word[0] in DATA_COMMANDS:
             execute_data_command(metadata, user_input)
             continue
         try:
@@ -126,36 +152,22 @@ def run(filepath=META_FILE):
             continue
 
         command, *arguments = args
-        if command not in {"create_table", "drop_table", "list_tables", "help", "exit"}:
+        if command not in TABLE_COMMANDS | NO_ARGUMENT_COMMANDS:
             print(f"Функции {command} нет. Попробуйте снова.")
             continue
         if (
             (command == "create_table" and not arguments)
             or (command == "drop_table" and len(arguments) != 1)
-            or (command in {"list_tables", "help", "exit"} and arguments)
+            or (command in NO_ARGUMENT_COMMANDS and arguments)
         ):
             print(f"Некорректное значение: {user_input}. Попробуйте снова.")
             continue
 
-        previous = metadata.copy()
         if command == "exit":
             return
         elif command == "help":
             print_help()
         elif command == "list_tables":
             list_tables(metadata)
-        elif command == "create_table":
-            create_table(metadata, arguments[0], arguments[1:])
-        elif command == "drop_table":
-            drop_table(metadata, arguments[0])
-
-        if metadata != previous:
-            try:
-                if command == "create_table":
-                    save_table_data(arguments[0], [])
-                save_metadata(filepath, metadata)
-                if command == "drop_table":
-                    remove_table_data(arguments[0])
-            except OSError as error:
-                print(f"Ошибка сохранения метаданных: {error}")
-                return
+        else:
+            execute_table_command(metadata, command, arguments, filepath)

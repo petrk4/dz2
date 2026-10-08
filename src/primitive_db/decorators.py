@@ -2,6 +2,8 @@
 
 import time
 
+from primitive_db.constants import CONFIRM_RESPONSE
+
 
 def _preserve_metadata(func):
     """Сохранить атрибуты исходной функции без дополнительных библиотек."""
@@ -66,7 +68,7 @@ def confirm_action(action_name):
             except (EOFError, KeyboardInterrupt):
                 print()
                 answer = ""
-            if answer.strip() != "y":
+            if answer.strip() != CONFIRM_RESPONSE:
                 print("Операция отменена.")
                 return None
             return func(*args, **kwargs)

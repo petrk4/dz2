@@ -5,6 +5,7 @@ import shlex
 import prompt
 from prettytable import PrettyTable
 
+from primitive_db.constants import HELP, META_FILE
 from primitive_db.core import (
     create_table,
     delete,
@@ -19,33 +20,11 @@ from primitive_db.parser import parse_command
 from primitive_db.utils import (
     load_metadata,
     load_table_data,
+    remove_table_data,
     save_metadata,
     save_table_data,
-    table_path,
 )
 from primitive_db.validation import get_schema, validate_table_data, validate_values
-
-HELP = """\n***Процесс работы с таблицей***
-Функции:
-<command> create_table <имя_таблицы> <столбец1:тип> .. - создать таблицу
-<command> list_tables - показать список всех таблиц
-<command> drop_table <имя_таблицы> - удалить таблицу
-
-***Операции с данными***
-insert into <таблица> values (<значение1>, <значение2>, ...) - создать запись
-select from <таблица> [where <столбец> = <значение>] - прочитать записи
-update <таблица> set <столбец> = <значение> where <столбец> = <значение>
-delete from <таблица> where <столбец> = <значение> - удалить записи
-info <таблица> - информация о таблице
-
-Общие команды:
-<command> exit - выход из программы
-<command> help - справочная информация
-
-Типы данных: int, str, bool. Столбец ID:int добавляется автоматически.
-Строки в кавычках, bool: true/false. При insert значения ID не передаются.
-Удаление таблиц и записей требует подтверждения y.
-"""
 
 
 def print_help():
@@ -55,6 +34,7 @@ def print_help():
 
 @handle_db_errors
 def execute_data_command(metadata, text):
+    """Выполнить CRUD-команду и сохранить только успешное изменение."""
     command, table_name, values, where = parse_command(text)
     schema = get_schema(metadata, table_name)
     table_data = load_table_data(table_name)
@@ -111,7 +91,7 @@ def execute_data_command(metadata, text):
                 )
 
 
-def run(filepath="db_meta.json"):
+def run(filepath=META_FILE):
     """Запустить БД, перечитывая метаданные перед каждым запросом."""
     print("***База данных***")
     print_help()
@@ -175,7 +155,7 @@ def run(filepath="db_meta.json"):
                     save_table_data(arguments[0], [])
                 save_metadata(filepath, metadata)
                 if command == "drop_table":
-                    table_path(arguments[0]).unlink(missing_ok=True)
+                    remove_table_data(arguments[0])
             except OSError as error:
                 print(f"Ошибка сохранения метаданных: {error}")
                 return

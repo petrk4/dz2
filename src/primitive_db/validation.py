@@ -1,14 +1,15 @@
 """Проверки схем и значений; ошибки обрабатываются на границе операций."""
 
-SUPPORTED_TYPES = {"int", "str", "bool"}
+from primitive_db.constants import ID_COLUMN, TYPE_MAP, VALID_TYPES
 
 
 def get_schema(metadata, table_name):
+    """Получить схему существующей таблицы и проверить её типы."""
     if table_name not in metadata:
         raise ValueError(f'Таблица "{table_name}" не существует.')
     schema = dict(column.split(":") for column in metadata[table_name])
-    if schema.get("ID") != "int" or any(
-        kind not in SUPPORTED_TYPES for kind in schema.values()
+    if schema.get(ID_COLUMN) != "int" or any(
+        kind not in VALID_TYPES for kind in schema.values()
     ):
         raise ValueError(f"Некорректная схема таблицы: {table_name}")
     return schema
@@ -16,17 +17,17 @@ def get_schema(metadata, table_name):
 
 def validate_values(schema, values, allow_id=True):
     """Проверять точные типы: bool не считается int."""
-    types = {"int": int, "str": str, "bool": bool}
     for name, value in values.items():
         if name not in schema:
             raise ValueError(f"Столбец {name} не существует")
         if name == "ID" and not allow_id:
             raise ValueError("ID генерируется автоматически и не изменяется")
-        if type(value) is not types[schema[name]]:
+        if type(value) is not TYPE_MAP[schema[name]]:
             raise ValueError(f"Столбец {name} требует тип {schema[name]}")
 
 
 def validate_table_data(schema, table_data):
+    """Проверить обязательные поля, типы и уникальность ID."""
     ids = set()
     for row in table_data:
         if set(row) != set(schema):

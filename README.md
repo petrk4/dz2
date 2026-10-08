@@ -7,6 +7,15 @@
 
 ## Установка и запуск
 
+При установленном GNU Make:
+
+```sh
+make install
+make run
+```
+
+Или напрямую через uv:
+
 ```powershell
 uv sync
 uv run database
@@ -77,7 +86,7 @@ uvx twine check dist/*
 ## Установка собранного пакета
 
 ```powershell
-uv tool install .\dist\primitive_db-0.4.0-py3-none-any.whl
+uv tool install .\dist\primitive_db-0.4.1-py3-none-any.whl
 database
 ```
 
@@ -89,7 +98,7 @@ database
 
 ```powershell
 uv venv build/demo-env
-uv pip install --python build/demo-env/Scripts/python.exe .\dist\primitive_db-0.4.0-py3-none-any.whl
+uv pip install --python build/demo-env/Scripts/python.exe .\dist\primitive_db-0.4.1-py3-none-any.whl
 .\build\demo-env\Scripts\Activate.ps1
 database
 ```
@@ -184,7 +193,7 @@ exit
 Личные пути в выводе установки скрыты.
 
 Модуль `src/primitive_db/decorators.py` входит в устанавливаемый пакет.
-Все обёртки используют `functools.wraps`, сохраняя имя и документацию функции.
+Обёртки сохраняют имя, документацию и ссылку `__wrapped__` исходной функции.
 
 - `handle_db_errors` централизованно обрабатывает `FileNotFoundError`, `KeyError`,
   `ValueError`, ошибки файловых операций и остальные исключения `Exception`.
@@ -215,3 +224,43 @@ exit
 
 Перед удалением записей без совпадений выводится «Подходящих записей нет.»;
 подтверждение в этом случае не запрашивается.
+
+
+## Финальная проверка
+
+[![Полный сценарий версии 0.4.1](https://asciinema.org/a/HSWCNigQNoDRUTH5.svg)](https://asciinema.org/a/HSWCNigQNoDRUTH5)
+
+[Копия записи](docs/submission.cast) содержит установку пакета, запуск,
+создание таблицы, вставку, чтение, обновление, удаление записей и удаление таблицы.
+
+Основной менеджер проекта — uv. Для стандартных команд сдачи добавлен Makefile:
+
+```sh
+make install
+make run
+make lint
+make test
+make check
+```
+
+Нужны Python 3.12+, uv и GNU Make. На Windows при отсутствии GNU Make можно
+выполнить эквиваленты: `uv sync`, `uv run database`, `uv run ruff check .`.
+`make check` запускает линтер, тесты, сборку и проверку метаданных twine.
+Ruff объявлен как dev-зависимость uv (`dependency-groups.dev`) и в требуемой
+секции совместимости `tool.poetry.group.dev.dependencies`.
+
+Приложение написано функциями, без собственных классов. Импортируются только
+`json`, `shlex`, `time`, `os`, `prettytable`, `prompt` и внутренние модули пакета.
+Тесты на стандартном `unittest` расположены отдельно в `tests/`, используют
+тестовые классы и дополнительные средства стандартной библиотеки; в пакет
+приложения они не входят.
+
+В `constants.py` вынесены `META_FILE`, `DATA_DIR`, `VALID_TYPES`, типы столбцов,
+параметры JSON и текст справки. У функций приложения есть docstring.
+Тесты проверяют эти ограничения автоматически, а полный сценарий запускается
+через stdin/stdout отдельного процесса, включая повторный запуск и подтверждения.
+
+Настройки IDE, окружения, сборки, кеши и пользовательские данные исключены из Git.
+Финальные изменения выполняются в ветке `codex/final-check` для последующего
+включения в `master`. Ранние учебные этапы были зафиксированы прямо в `master`;
+история этих коммитов сохранена.

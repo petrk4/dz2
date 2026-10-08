@@ -1,8 +1,8 @@
 """Операции со схемами таблиц и записями."""
 
 import json
-from copy import deepcopy
 
+from primitive_db.constants import ID_COLUMN, ID_SCHEMA, VALID_TYPES
 from primitive_db.decorators import (
     confirm_action,
     create_cacher,
@@ -11,7 +11,6 @@ from primitive_db.decorators import (
 )
 from primitive_db.utils import load_table_data
 from primitive_db.validation import (
-    SUPPORTED_TYPES,
     get_schema,
     validate_table_data,
     validate_values,
@@ -28,7 +27,7 @@ def create_table(metadata, table_name, columns):
     if not table_name.isidentifier():
         raise ValueError(f"Некорректное значение: {table_name}. Попробуйте снова.")
 
-    schema = ["ID:int"]
+    schema = [ID_SCHEMA]
     names = set()
     for column in columns:
         parts = column.split(":")
@@ -38,12 +37,12 @@ def create_table(metadata, table_name, columns):
         if (
             not name.isidentifier()
             or name in names
-            or data_type not in SUPPORTED_TYPES
-            or (name == "ID" and data_type != "int")
+            or data_type not in VALID_TYPES
+            or (name == ID_COLUMN and data_type != "int")
         ):
             raise ValueError(f"Некорректное значение: {column}. Попробуйте снова.")
         names.add(name)
-        if name != "ID":
+        if name != ID_COLUMN:
             schema.append(column)
 
     metadata[table_name] = schema
@@ -92,6 +91,7 @@ def insert(metadata, table_name, values, table_data=None):
 
 
 def _matches(row, clause):
+    """Сравнить значения с учётом точного типа."""
     return all(
         name in row and type(row[name]) is type(value) and row[name] == value
         for name, value in clause.items()
@@ -101,13 +101,14 @@ def _matches(row, clause):
 @handle_db_errors
 @log_time
 def select(table_data, where_clause=None):
+    """Вернуть копии подходящих записей, кэшируя повторную фильтрацию."""
     # Снимок данных в ключе учитывает также изменения файла вне программы.
     key = json.dumps([table_data, where_clause or {}], sort_keys=True)
     result = _select_cache(
         key,
         lambda: [row.copy() for row in table_data if _matches(row, where_clause or {})],
     )
-    return deepcopy(result)
+    return [row.copy() for row in result]
 
 
 @handle_db_errors
@@ -132,6 +133,7 @@ def update(table_data, set_clause, where_clause):
 @handle_db_errors
 @confirm_action("удаление записей")
 def delete(table_data, where_clause):
+    """Удалить все совпадения после подтверждения пользователя."""
     if not where_clause:
         raise ValueError("Для delete требуется where")
     result = [row.copy() for row in table_data if not _matches(row, where_clause)]

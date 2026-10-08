@@ -9,14 +9,12 @@ from primitive_db.core import (
     create_table,
     delete,
     drop_table,
-    get_schema,
     insert,
     list_tables,
     select,
     update,
-    validate_table_data,
-    validate_values,
 )
+from primitive_db.decorators import handle_db_errors
 from primitive_db.parser import parse_command
 from primitive_db.utils import (
     load_metadata,
@@ -25,6 +23,7 @@ from primitive_db.utils import (
     save_table_data,
     table_path,
 )
+from primitive_db.validation import get_schema, validate_table_data, validate_values
 
 HELP = """\n***Процесс работы с таблицей***
 Функции:
@@ -45,6 +44,7 @@ info <таблица> - информация о таблице
 
 Типы данных: int, str, bool. Столбец ID:int добавляется автоматически.
 Строки в кавычках, bool: true/false. При insert значения ID не передаются.
+Удаление таблиц и записей требует подтверждения y.
 """
 
 
@@ -53,6 +53,7 @@ def print_help():
     print(HELP)
 
 
+@handle_db_errors
 def execute_data_command(metadata, text):
     command, table_name, values, where = parse_command(text)
     schema = get_schema(metadata, table_name)
@@ -67,11 +68,16 @@ def execute_data_command(metadata, text):
         print(f"Количество записей: {len(table_data)}")
     elif command == "select":
         result = PrettyTable(list(schema))
-        for row in select(table_data, where):
+        rows = select(table_data, where)
+        if rows is None:
+            return
+        for row in rows:
             result.add_row([row[column] for column in schema])
         print(result)
     elif command == "insert":
         data = insert(metadata, table_name, values, table_data)
+        if data is None:
+            return
         save_table_data(table_name, data)
         print(
             f'Запись с ID={data[-1]["ID"]} успешно добавлена в таблицу "{table_name}".'
@@ -79,12 +85,17 @@ def execute_data_command(metadata, text):
     else:
         if command == "update":
             validate_values(schema, values, allow_id=False)
+        matches = select(table_data, where)
+        if matches is None:
+            return
+        if not matches:
+            print("Подходящих записей нет.")
+            return
+        if command == "update":
             data = update(table_data, values, where)
         else:
             data = delete(table_data, where)
-        matches = select(table_data, where)
-        if not matches:
-            print("Подходящих записей нет.")
+        if data is None:
             return
         save_table_data(table_name, data)
         for row in matches:
@@ -95,7 +106,7 @@ def execute_data_command(metadata, text):
                 )
             else:
                 print(
-                    f'Запись с ID={row["ID"]} успешно удалена '
+                    f"Запись с ID={row['ID']} успешно удалена "
                     f'из таблицы "{table_name}".'
                 )
 
@@ -118,12 +129,13 @@ def run(filepath="db_meta.json"):
             return
         first_word = user_input.split(maxsplit=1)
         if first_word and first_word[0] in {
-            "insert", "select", "update", "delete", "info"
+            "insert",
+            "select",
+            "update",
+            "delete",
+            "info",
         }:
-            try:
-                execute_data_command(metadata, user_input)
-            except (ValueError, OSError) as error:
-                print(f"Ошибка: {error}. Попробуйте снова.")
+            execute_data_command(metadata, user_input)
             continue
         try:
             args = shlex.split(user_input)

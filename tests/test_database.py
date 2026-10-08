@@ -14,6 +14,9 @@ from primitive_db.utils import load_metadata, save_metadata
 
 class DatabaseTests(unittest.TestCase):
     def setUp(self):
+        confirmation = patch("builtins.input", return_value="y")
+        confirmation.start()
+        self.addCleanup(confirmation.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "db_meta.json"
@@ -56,7 +59,7 @@ class DatabaseTests(unittest.TestCase):
         metadata = {"users": ["ID:int", "name:str"]}
         create_table(metadata, "users", ["age:int"])
         self.assertEqual(metadata["users"], ["ID:int", "name:str"])
-        self.assertIs(drop_table(metadata, "absent"), metadata)
+        self.assertIsNone(drop_table(metadata, "absent"))
         self.assertIn("users", metadata)
         self.assertIs(drop_table(metadata, "users"), metadata)
         self.assertEqual(metadata, {})

@@ -15,6 +15,9 @@ from primitive_db.utils import load_table_data, save_metadata, save_table_data
 
 class CrudTests(unittest.TestCase):
     def setUp(self):
+        confirmation = patch("builtins.input", return_value="y")
+        confirmation.start()
+        self.addCleanup(confirmation.stop)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
@@ -48,10 +51,9 @@ class CrudTests(unittest.TestCase):
             [], [1, "Sergei", 28, True], ["Sergei", "28", True],
             ["Sergei", True, True], ["Sergei", 28, 1], [None, 28, True],
         ):
-            with self.subTest(values=values), self.assertRaises(ValueError):
-                insert(self.metadata, "users", values)
-        with self.assertRaises(ValueError):
-            insert(self.metadata, "missing", [])
+            with self.subTest(values=values):
+                self.assertIsNone(insert(self.metadata, "users", values))
+        self.assertIsNone(insert(self.metadata, "missing", []))
         self.assertFalse(self.data_path.exists())
 
     def test_select_update_delete_multiple_matches(self):
@@ -68,8 +70,7 @@ class CrudTests(unittest.TestCase):
         self.assertEqual(rows[0]["age"], 28)
         self.assertEqual(delete(updated, {"age": 29}), [rows[2]])
         for changes in ({"ID": 4}, {"missing": 1}, {"age": False}):
-            with self.assertRaises(ValueError):
-                update(rows, changes, {"ID": 1})
+            self.assertIsNone(update(rows, changes, {"ID": 1}))
 
     def test_full_cli_across_sessions(self):
         output = self.session(['insert into users values ("Sergei",28,true)', "exit"])
@@ -102,7 +103,7 @@ class CrudTests(unittest.TestCase):
             "delete from users where ID=true", 'insert into missing values ("A")',
             'insert into users values ("unfinished)', "info missing", "exit",
         ])
-        self.assertEqual(output.count("Ошибка:"), 11)
+        self.assertEqual(output.count("Ошибка"), 11)
         self.assertEqual(self.data_path.read_bytes(), before)
 
     def test_drop_and_recreate_clears_data(self):
@@ -118,7 +119,7 @@ class CrudTests(unittest.TestCase):
         for text in ("{broken", "{}", '[{"ID":1}]'):
             self.data_path.write_text(text, encoding="utf-8")
             output = self.session(['insert into users values ("A",1,true)', "exit"])
-            self.assertIn("Ошибка:", output)
+            self.assertIn("Ошибка", output)
             self.assertEqual(self.data_path.read_text(encoding="utf-8"), text)
 
     def test_failed_write_preserves_existing_file(self):

@@ -9,7 +9,12 @@ from unittest.mock import patch
 
 from primitive_db.core import create_table, drop_table
 from primitive_db.engine import run
-from primitive_db.utils import load_metadata, save_metadata
+from primitive_db.utils import (
+    load_metadata,
+    load_table_data,
+    save_metadata,
+    save_table_data,
+)
 
 
 class DatabaseTests(unittest.TestCase):
@@ -43,8 +48,14 @@ class DatabaseTests(unittest.TestCase):
 
     def test_invalid_columns_do_not_change_metadata(self):
         for columns in (
-            ["good:str", "bad:float"], ["name"], ["a:int:bool"], [":str"],
-            ["a:"], ["a:str", "a:int"], ["ID:str"], ["ID:int", "ID:int"],
+            ["good:str", "bad:float"],
+            ["name"],
+            ["a:int:bool"],
+            [":str"],
+            ["a:"],
+            ["a:str", "a:int"],
+            ["ID:str"],
+            ["ID:int", "ID:int"],
             ["bad-name:int"],
         ):
             with self.subTest(columns=columns):
@@ -83,11 +94,22 @@ class DatabaseTests(unittest.TestCase):
 
     def test_errors_reprompt_and_do_not_save(self):
         with patch("primitive_db.engine.save_metadata") as save:
-            self.session([
-                "nonsense", "create_table", "drop_table", "drop_table a b",
-                "help extra", "list_tables extra", "exit extra", 'create_table "',
-                "create_table users bad:float", "drop_table missing", "   ", "exit",
-            ])
+            self.session(
+                [
+                    "nonsense",
+                    "create_table",
+                    "drop_table",
+                    "drop_table a b",
+                    "help extra",
+                    "list_tables extra",
+                    "exit extra",
+                    'create_table "',
+                    "create_table users bad:float",
+                    "drop_table missing",
+                    "   ",
+                    "exit",
+                ]
+            )
         save.assert_not_called()
         self.assertIn("Функции nonsense нет. Попробуйте снова.", self.output.getvalue())
         self.assertIn("Некорректное значение: bad:float.", self.output.getvalue())
@@ -105,12 +127,14 @@ class DatabaseTests(unittest.TestCase):
             return "help"
 
         with patch("primitive_db.engine.prompt.string", side_effect=respond) as prompt:
+
             def commands(_):
                 if prompt.call_count == 1:
                     return respond(_)
                 if prompt.call_count == 2:
                     return "list_tables"
                 return "exit"
+
             prompt.side_effect = commands
             run(self.path)
         self.assertIn("- external", self.output.getvalue())
@@ -129,8 +153,29 @@ class DatabaseTests(unittest.TestCase):
 
     def test_save_error_is_reported(self):
         with patch("primitive_db.engine.save_metadata", side_effect=OSError("denied")):
-            self.session(["create_table users name:str"])
-        self.assertIn("Ошибка сохранения метаданных: denied", self.output.getvalue())
+            self.session(["create_table users name:str", "exit"])
+        self.assertIn("Ошибка файловой операции: denied", self.output.getvalue())
+        self.assertNotIn("успешно создана", self.output.getvalue())
+        self.assertEqual(load_metadata(self.path), {})
+
+    def test_failed_drop_does_not_claim_success_or_remove_data(self):
+        metadata = {"users": ["ID:int", "name:str"]}
+        records = [{"ID": 1, "name": "Sergei"}]
+        save_metadata(self.path, metadata)
+        save_table_data("users", records)
+        with patch("primitive_db.engine.save_metadata", side_effect=OSError("denied")):
+            self.session(["drop_table users", "exit"])
+        self.assertNotIn("успешно удалена", self.output.getvalue())
+        self.assertEqual(load_metadata(self.path), metadata)
+        self.assertEqual(load_table_data("users"), records)
+
+    def test_failed_data_file_creation_does_not_register_table(self):
+        with patch(
+            "primitive_db.engine.save_table_data", side_effect=OSError("denied")
+        ):
+            self.session(["create_table users name:str", "exit"])
+        self.assertNotIn("успешно создана", self.output.getvalue())
+        self.assertEqual(load_metadata(self.path), {})
 
 
 if __name__ == "__main__":

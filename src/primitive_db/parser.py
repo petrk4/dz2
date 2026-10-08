@@ -2,6 +2,8 @@
 
 import json
 
+from primitive_db.constants import BOOL_LITERALS
+
 
 def tokenize(text):
     """Выделить слова, числа, пунктуацию и строки, сохраняя кавычки."""
@@ -57,8 +59,8 @@ def parse_value(token):
                 encoded.append('\\"' if char == '"' else char)
                 position += 1
         return json.loads('"' + "".join(encoded) + '"')
-    if token.lower() in {"true", "false"}:
-        return token.lower() == "true"
+    if token.lower() in BOOL_LITERALS:
+        return BOOL_LITERALS[token.lower()]
     digits = token[1:] if token.startswith(("+", "-")) else token
     if digits and digits.isdecimal():
         return int(token)
